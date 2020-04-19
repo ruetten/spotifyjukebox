@@ -1,0 +1,4 @@
+export SPOTIPY_CLIENT_ID='524a3c5def4d4cb08a4b98c48458543d'
+export SPOTIPY_CLIENT_SECRET='5a4424bde8664bffbc2f8d55658f98f6'
+export SPOTIPY_REDIRECT_URI='http://google.com/'
+python3 spotifyxx.py 22uiuzjxpc7khi3pprxs2lqma
