@@ -1,0 +1,3 @@
+WID=$(xdotool search --onlyvisible --class chromium-browser|head -1)
+xdotool windowactivate ${WID}
+xdotool key ctrl+F5

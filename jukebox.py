@@ -13,6 +13,8 @@ import requests
 default_image = "https://yt3.ggpht.com/-oSs8fntDxuw/AAAAAAAAAAI/AAAAAAAAAAA/17pzJmg8Gds/s900-c-k-no-mo-rj-c0xffffff/photo.jpg"
 current_track = None
 
+auto_refresh = 2
+
 """
 export SPOTIPY_CLIENT_ID='524a3c5def4d4cb08a4b98c48458543d'
 export SPOTIPY_CLIENT_SECRET='5a4424bde8664bffbc2f8d55658f98f6'
@@ -21,7 +23,8 @@ python3 jukebox.py 22uiuzjxpc7khi3pprxs2lqma
 """
 class Serv(BaseHTTPRequestHandler):
     def do_GET(self):
-        sleep(0.1)
+        if auto_refresh > 0:
+            sleep(0.1)
         get_current_track()
         if self.path == '/':
             self.path = '/index.html'
@@ -54,10 +57,12 @@ def edit_html(image_url, artist, track):
     f.write("\">")
     f.write("<h1>SPOTIFY JUKEBOX</h1><h2>BY RUETTEN<h2></body></html>")
     f.close()
-    if track != current_track:
+    if auto_refresh == 1 and track != current_track:
         os.system("pkill -o chromium")
         sleep(1)
-        webbrowser.open("http://localhost:8080/")
+    elif auto_refresh == 2 and track != current_track:
+#         webbrowser.open("http://localhost:8080/")
+        os.system("bash refresh")
     
 def get_current_track():
     # current track playing
@@ -68,9 +73,20 @@ def get_current_track():
         track_name = track['item']['name']
         print("Currently playing " + artist + " - " + track_name)
         edit_html(track['item']['album']['images'][0]['url'], artist, track_name)
-        print(str(current_track) + " " + track_name)
+#         print(str(current_track) + " " + track_name)
         if track_name != current_track:
             current_track = track_name
+
+def refresh_regulary():
+    global current_track
+    while True:
+        track = spotifyObject.current_user_playing_track()
+        if track != None:
+            track_name = track['item']['name']
+            if track_name != current_track:
+                current_track = track_name
+                os.system("bash refresh")
+        sleep(3)
 
 # Get the username from terminal
 username = sys.argv[1]
@@ -93,6 +109,7 @@ devices = spotifyObject.devices()
 deviceID = devices['devices'][0]['id']
 
 threading.Thread(target=host_server).start()
+threading.Thread(target=refresh_regulary).start()
 
 get_current_track()
 
@@ -109,7 +126,7 @@ while True:
     print("YOU HAVE " + str(followers) + " FOLLOWERS.")
     print()
     print("0 - Search for an artist")
-    print("1 = exit")
+    print("1 - exit")
     print()
     choice = input("Your choice: ")
     
@@ -168,7 +185,8 @@ while True:
             trackSelectionList = []
             trackSelectionList.append(trackURIs[int(songSelection)])
             spotifyObject.start_playback(deviceID, None, trackSelectionList)
-            r = requests.get(url = "http://localhost:8080/")
+            if auto_refresh > 0:
+                r = requests.get(url = "http://localhost:8080/")
 #                 edit_html(trackArt[int(songSelection)])
 #                 webbrowser.open(trackArt[int(songSelection)])
 #                 time.sleep(3)
