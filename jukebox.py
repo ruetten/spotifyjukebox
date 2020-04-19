@@ -5,11 +5,13 @@ import spotipy
 import webbrowser
 import spotipy.util as util
 from json.decoder import JSONDecodeError
-import time
+from time import sleep
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import threading
+import requests
 
 default_image = "https://yt3.ggpht.com/-oSs8fntDxuw/AAAAAAAAAAI/AAAAAAAAAAA/17pzJmg8Gds/s900-c-k-no-mo-rj-c0xffffff/photo.jpg"
+current_track = None
 
 """
 export SPOTIPY_CLIENT_ID='524a3c5def4d4cb08a4b98c48458543d'
@@ -19,7 +21,8 @@ python3 jukebox.py 22uiuzjxpc7khi3pprxs2lqma
 """
 class Serv(BaseHTTPRequestHandler):
     def do_GET(self):
-        current_track()
+        sleep(0.1)
+        get_current_track()
         if self.path == '/':
             self.path = '/index.html'
         try:
@@ -31,7 +34,10 @@ class Serv(BaseHTTPRequestHandler):
             self.send_response(404)
         self.end_headers()
         self.wfile.write(bytes(file_to_open, 'utf-8'))
-        f.close()
+        try:
+            f.close()
+        except:
+            pass
 
 def host_server():
     httpd = HTTPServer(('localhost', 8080), Serv)
@@ -40,24 +46,31 @@ def host_server():
 def edit_html(image_url, artist, track):
     f = open('index.html', 'w')
     f.write("<!DOCTYPE html><html><head><title>Spotify Jukebox</title></head>")
-#     f.write("<body style=background-color:grey>")
-#     f.write("<body style=\"font-family:verdana;\">")
-    f.write("<body style=text-align:center>")
+#     f.write("<body style=>")
+#     f.write("<body style=\"\">")
+    f.write("<body style=text-align:center;font-family:courier;background-color:#1DB954>")
     f.write("<h1>" + artist + " - " + track + "</h1><img src=\"")
     f.write(image_url)
     f.write("\">")
     f.write("<h1>SPOTIFY JUKEBOX</h1><h2>BY RUETTEN<h2></body></html>")
     f.close()
+    if track != current_track:
+        os.system("pkill -o chromium")
+        sleep(1)
+        webbrowser.open("http://localhost:8080/")
     
-def current_track():
+def get_current_track():
     # current track playing
+    global current_track
     track = spotifyObject.current_user_playing_track()
     if track != None:
         artist = track['item']['artists'][0]['name']
         track_name = track['item']['name']
         print("Currently playing " + artist + " - " + track_name)
         edit_html(track['item']['album']['images'][0]['url'], artist, track_name)
-
+        print(str(current_track) + " " + track_name)
+        if track_name != current_track:
+            current_track = track_name
 
 # Get the username from terminal
 username = sys.argv[1]
@@ -81,7 +94,7 @@ deviceID = devices['devices'][0]['id']
 
 threading.Thread(target=host_server).start()
 
-current_track()
+get_current_track()
 
 # user info
 user = spotifyObject.current_user()
@@ -155,6 +168,7 @@ while True:
             trackSelectionList = []
             trackSelectionList.append(trackURIs[int(songSelection)])
             spotifyObject.start_playback(deviceID, None, trackSelectionList)
+            r = requests.get(url = "http://localhost:8080/")
 #                 edit_html(trackArt[int(songSelection)])
 #                 webbrowser.open(trackArt[int(songSelection)])
 #                 time.sleep(3)
