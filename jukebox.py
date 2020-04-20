@@ -67,9 +67,13 @@ def host_server():
     httpd.serve_forever()
 
 def q_up_track(track_uri):
-    track_uri = track_uri[track_uri.find('spotify:track:')+len('spotify:track:')+5:]
+    print(track_uri)
+    start = track_uri.find('%2Ftrack%2F') + len('%2Ftrack%2F') #/
+    end = track_uri.find('%3F') #?
+    track_uri = track_uri[start:end]
+    print(track_uri)
     spotifyObject.add_to_queue(track_uri, device_id=get_device())
-    spotifyObject.next_track()
+#     spotifyObject.next_track()
 
 def edit_html(image_url, artist, track):
     f = open(disp[1:], 'w')
