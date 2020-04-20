@@ -24,13 +24,14 @@ export SPOTIPY_CLIENT_ID='524a3c5def4d4cb08a4b98c48458543d'
 export SPOTIPY_CLIENT_SECRET='5a4424bde8664bffbc2f8d55658f98f6'
 export SPOTIPY_REDIRECT_URI='http://google.com/'
 python3 jukebox.py 22uiuzjxpc7khi3pprxs2lqma
+spotify:track:0rQtoQXQfwpDW0c7Fw1NeM
 """
 class Serv(BaseHTTPRequestHandler):
     def _set_response(self):
         self.send_response(200)
         self.send_header('Content-type', 'text/html')
         self.end_headers()
-    
+
     def do_GET(self):
         if auto_refresh > 0:
             sleep(0.1)
@@ -50,7 +51,7 @@ class Serv(BaseHTTPRequestHandler):
             f.close()
         except:
             pass
-    
+
     def do_POST(self):
         content_length = int(self.headers['Content-length']) # get amount of data
         post_data = self.rfile.read(content_length) # get the data
@@ -64,8 +65,9 @@ class Serv(BaseHTTPRequestHandler):
 def host_server():
     httpd = HTTPServer(('localhost', port), Serv)
     httpd.serve_forever()
-    
+
 def q_up_track(track_uri):
+    track_uri = track_uri[track_uri.find('spotify:track:')+len('spotify:track:')+5:]
     spotifyObject.add_to_queue(track_uri, device_id=get_device())
     spotifyObject.next_track()
 
@@ -87,7 +89,7 @@ def edit_html(image_url, artist, track):
     elif auto_refresh == 2 and track != current_track:
 #         webbrowser.open("http://localhost:8080/")
         os.system("bash refresh")
-    
+
 def get_current_track():
     # current track playing
     global current_track
@@ -135,7 +137,7 @@ def get_device():
     deviceID = devices['devices'][0]['id']
     return deviceID
 deviceID = get_device()
-    
+
 threading.Thread(target=host_server).start()
 threading.Thread(target=refresh_regulary).start()
 
@@ -148,7 +150,7 @@ displayName = user['display_name']
 followers = user['followers']['total']
 
 while True:
-    
+
     print()
     print("WELCOME TO THE SPOTIFY JUKEBOX " + displayName)
     print("YOU HAVE " + str(followers) + " FOLLOWERS.")
@@ -157,19 +159,19 @@ while True:
     print("1 - exit")
     print()
     choice = input("Your choice: ")
-    
+
     # Search for artist
     if choice == "0":
         print()
         searchQuery = input("Artist name: ")
         print()
-        
+
         # Get search results
         searchResults = spotifyObject.search(searchQuery, 1, 0, "artist")
-        
+
         # Artist details
         artist = searchResults['artists']['items'][0]
-        
+
         print(artist['name'])
         print(str(artist['followers']['total']) + " followers")
         print(artist['genres'][0])
@@ -177,14 +179,14 @@ while True:
 #             webbrowser.open(artist['images'][0]['url'])
 #             time.sleep(3)
 #             os.system("pkill -o chromium")
-        
+
         artistID = artist['id']
-        
+
         # Album and track details
         trackURIs = []
         trackArt = []
         z = 0
-        
+
         # Extract album data
         albumResults = spotifyObject.artist_albums(artistID)
         albumResults = albumResults['items']
@@ -193,18 +195,18 @@ while True:
             print("ALBUM " + item['name'])
             albumID = item['id']
             albumArt = item['images'][0]['url']
-            
+
             # Extract track data
             trackResults = spotifyObject.album_tracks(albumID)
             trackResults = trackResults['items']
-            
+
             for item in trackResults:
                 print(str(z) + ": " + item['name'])
                 trackURIs.append(item['uri'])
                 trackArt.append(albumArt)
                 z += 1
             print()
-                
+
         # See album art
         while True:
             songSelection = input("Enter a song number to see album art associated (x to exit)")
@@ -221,9 +223,9 @@ while True:
 #                 webbrowser.open(trackArt[int(songSelection)])
 #                 time.sleep(3)
 #                 os.system("pkill -o chromium")
-            
+
     # End the program
     if choice == "1":
         break
-    
+
     # print(json.dumps(VARIABLE, sort_keys=True, indent=4))
