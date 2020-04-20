@@ -13,7 +13,11 @@ import requests
 default_image = "https://yt3.ggpht.com/-oSs8fntDxuw/AAAAAAAAAAI/AAAAAAAAAAA/17pzJmg8Gds/s900-c-k-no-mo-rj-c0xffffff/photo.jpg"
 current_track = None
 
+port = 8080
 auto_refresh = 2
+
+disp = "/disp.html"
+qup = "/qup.html"
 
 """
 export SPOTIPY_CLIENT_ID='524a3c5def4d4cb08a4b98c48458543d'
@@ -22,12 +26,17 @@ export SPOTIPY_REDIRECT_URI='http://google.com/'
 python3 jukebox.py 22uiuzjxpc7khi3pprxs2lqma
 """
 class Serv(BaseHTTPRequestHandler):
+    def _set_response(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+    
     def do_GET(self):
         if auto_refresh > 0:
             sleep(0.1)
         get_current_track()
         if self.path == '/':
-            self.path = '/index.html'
+            self.path = qup
         try:
             f = open(self.path[1:])
             file_to_open = f.read()
@@ -41,21 +50,36 @@ class Serv(BaseHTTPRequestHandler):
             f.close()
         except:
             pass
+    
+    def do_POST(self):
+        content_length = int(self.headers['Content-length']) # get amount of data
+        post_data = self.rfile.read(content_length) # get the data
+        post_data = post_data.decode('unicode_escape')
+        post_data = post_data[post_data.find('=')+1:]
+        print(post_data)
+        q_up_track(post_data)
+        self._set_response()
+        self.wfile.write("Your song should play shorty!".format(self.path).encode('utf-8'))
 
 def host_server():
-    httpd = HTTPServer(('localhost', 8080), Serv)
+    httpd = HTTPServer(('localhost', port), Serv)
     httpd.serve_forever()
     
+def q_up_track(track_uri):
+    spotifyObject.add_to_queue(track_uri, device_id=get_device())
+    spotifyObject.next_track()
+
 def edit_html(image_url, artist, track):
-    f = open('index.html', 'w')
+    f = open(disp[1:], 'w')
     f.write("<!DOCTYPE html><html><head><title>Spotify Jukebox</title></head>")
 #     f.write("<body style=>")
 #     f.write("<body style=\"\">")
     f.write("<body style=text-align:center;font-family:courier;background-color:#1DB954>")
-    f.write("<h1>" + artist + " - " + track + "</h1><img src=\"")
+    f.write("<br><br><br>")
+    f.write("<h1>" + artist + " - " + track + "</h1><img style=\"width:800px;height:800px;\" src=\"")
     f.write(image_url)
     f.write("\">")
-    f.write("<h1>SPOTIFY JUKEBOX</h1><h2>BY RUETTEN<h2></body></html>")
+    f.write("<h5>\"SPOTIFY JUKEBOX\" BY RUETTEN<h5></body></html>")
     f.close()
     if auto_refresh == 1 and track != current_track:
         os.system("pkill -o chromium")
@@ -84,9 +108,10 @@ def refresh_regulary():
         if track != None:
             track_name = track['item']['name']
             if track_name != current_track:
+#                 print(json.dumps(track, sort_keys=True, indent=4))
                 current_track = track_name
                 os.system("bash refresh")
-        sleep(3)
+        sleep(1)
 
 # Get the username from terminal
 username = sys.argv[1]
@@ -105,9 +130,12 @@ except (AttributeError, JSONDecodeError):
 spotifyObject = spotipy.Spotify(auth=token)
 
 # get device information
-devices = spotifyObject.devices()
-deviceID = devices['devices'][0]['id']
-
+def get_device():
+    devices = spotifyObject.devices()
+    deviceID = devices['devices'][0]['id']
+    return deviceID
+deviceID = get_device()
+    
 threading.Thread(target=host_server).start()
 threading.Thread(target=refresh_regulary).start()
 
@@ -184,9 +212,11 @@ while True:
                 break
             trackSelectionList = []
             trackSelectionList.append(trackURIs[int(songSelection)])
-            spotifyObject.start_playback(deviceID, None, trackSelectionList)
+#             spotifyObject.start_playback(deviceID, None, trackSelectionList)
+            spotifyObject.add_to_queue(trackURIs[int(songSelection)], device_id=deviceID)
+            spotifyObject.next_track()
             if auto_refresh > 0:
-                r = requests.get(url = "http://localhost:8080/")
+                r = requests.get(url = "http://localhost:" + port + "/")
 #                 edit_html(trackArt[int(songSelection)])
 #                 webbrowser.open(trackArt[int(songSelection)])
 #                 time.sleep(3)
