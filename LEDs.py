@@ -1,6 +1,7 @@
 import board
 import neopixel
 import time
+from math import floor
 
 num_pixels = 300
 pixels = neopixel.NeoPixel(board.D18, num_pixels)
@@ -35,13 +36,83 @@ def rainbow_cycle(wait):
         pixels.show()
         time.sleep(wait)
 
+b = 0.4
+red = floor(255*b)
+blue = 0
+green = 0
+increasingRed = False
+increasingBlue = True
+increasingGreen = False
+lingerAtRed = False
+decreasingRed = True
+decreasingBlue = False
+decreasingGreen = False
+sleepAmount = .5
 while True:
-    pixels.fill((255, 0, 0))
+    print(str(red) + " " + str(green) + " " + str(blue))
+    pixels.fill((red, green, blue))
     pixels.show()
-    time.sleep(60.0/(84.635))
-    pixels.fill((0, 255, 0))
-    pixels.show()
-    time.sleep(60.0/(84.635))
-    pixels.fill((0, 0, 255))
-    pixels.show()
-    time.sleep(60.0/84.635)
+    time.sleep(sleepAmount)
+    if increasingRed:
+        if red != floor(255*b):   
+            red = red + 1
+    elif decreasingRed:
+        if red != 0:
+            red = red - 1
+            
+    if increasingBlue:
+        blue = blue + 1
+        if blue == floor(165*b):
+            decreasingRed = False
+            increasingRed = True
+            increasingBlue = False
+            decreasingBlue = True
+    elif decreasingBlue:
+        blue = blue - 1
+        if blue == 0:
+            increasingRed = False
+            decreasingBlue = False
+            increasingGreen = True
+            
+    if increasingGreen:
+        green = green + 1
+        if green == floor(165*b):
+            decreasingRed = False
+            increasingRed = True
+            increasingGreen = False
+            decreasingGreen = True
+    elif decreasingGreen:
+        green = green - 1
+        if green == 0:
+            lingerAtRed = True
+            
+    if lingerAtRed:
+        time.sleep(sleepAmount*165)
+        lingerAtRed = False
+        decreasingRed = True
+        increasingRed = False
+        decreasingGreen = False
+        increasingBlue = True
+            
+#     if increasingRed:
+#         red = red + 1
+#         if red == 255:
+#             increasingRed = False
+#             increasingBlue = True
+#     elif decreasingRed:
+#         red = red - 1
+#         if red == 0:
+#             decreasingRed = False
+#             decreasingBlue = True
+#             
+#     if increasingBlue:
+#         blue = blue + 1
+#         if blue == 255:
+#             increasingBlue = False
+#             decreasingRed = True
+#     elif decreasingBlue:
+#         blue = blue - 1
+#         if blue == 0:
+#             increasingRed = True
+#             decreasingBlue = False
+

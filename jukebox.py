@@ -15,12 +15,16 @@ import requests
 import board
 import neopixel
 import time
+# LYRICS
+import lyricsgenius
 
 # sem = threading.Semaphore()
 # kill_threads = False
 
 default_image = "https://yt3.ggpht.com/-oSs8fntDxuw/AAAAAAAAAAI/AAAAAAAAAAA/17pzJmg8Gds/s900-c-k-no-mo-rj-c0xffffff/photo.jpg"
 current_track = None # just the track name; used to update display
+
+get_lyrics = False
 
 """
 export SPOTIPY_CLIENT_ID='524a3c5def4d4cb08a4b98c48458543d'
@@ -36,6 +40,7 @@ auto_refresh = 1
 
 disp = "/disp.html"
 qup = "/qup.html"
+lyrics = "/lyrics.html"
 
 class Serv(SimpleHTTPRequestHandler):
     def _set_response(self):
@@ -71,11 +76,11 @@ class Serv(SimpleHTTPRequestHandler):
         print(post_data)
         q_up_track(post_data)
         self._set_response()
-        self.wfile.write("Your song should play shorty!".format(self.path).encode('utf-8'))
+        self.wfile.write("Your song should play shortly!".format(self.path).encode('utf-8'))
 
 def host_server():
     httpd = HTTPServer(('', port), Serv)
-#     httpd = socketserver.TCPServer(("", port), Serv)
+    # httpd = socketserver.TCPServer(("", port), Serv)
     t = threading.currentThread()
     while getattr(t, "do_run", True):
         httpd.handle_request()
@@ -93,7 +98,7 @@ def q_up_track(track_uri):
 
 def edit_html(image_url, artist, track):
     f = open(disp[1:], 'w')
-    f.write("<!DOCTYPE html><html><head><title>Spotify Jukebox</title></head>")
+    f.write("<!DOCTYPE html><html><head><title>Spotify Jukebox</title><meta charset=\"UTF-8\"></head>")
 #     f.write("<body style=>")
 #     f.write("<body style=\"\">")
     f.write("<body style=text-align:center;font-family:courier;background-color:grey>")#1DB954>")
@@ -119,6 +124,9 @@ def get_current_track():
         track_name = track['item']['name']
         print("Currently playing " + artist + " - " + track_name)
         edit_html(track['item']['album']['images'][0]['url'], artist, track_name)
+        #print(song_lyrics(track_name, artist))
+        if get_lyrics:
+            edit_lyrics_html(track['item']['album']['images'][0]['url'], artist, track_name)
 #         print(str(current_track) + " " + track_name)
         if track_name != current_track:
             current_track = track_name
@@ -161,28 +169,34 @@ def wheel(pos):
         b = int(255 - pos * 3)
     return (r, g, b)
 
-def rainbow_cycle(wait):
-    print("rainbow time")
-    for j in list(range(255)):
-        for i in range(num_pixels):
-            pixel_index = (i * 256 // num_pixels) + j*100
-            pixels[i] = wheel(pixel_index & 255)
-        pixels.show()
-        time.sleep(wait)
+def rainbow_cycle(wait, j):
+    for i in range(num_pixels):
+        pixel_index = (i * 256 // num_pixels) + j*100
+        pixels[i] = wheel(pixel_index & 255)
+    pixels.show()
+    time.sleep(wait)
 
 def update_LED_dance():
     global kill_threads
+    j = 0
     track_uri = None
     tempo = 60
+    energy = 0.5
     correction = 0
     track = spotifyObject.current_user_playing_track()
     current_dance = track
+    features = None
     if track != None:
         track_uri = track['item']['uri']
-        audio = spotifyObject.audio_analysis(track['item']['uri'])
+        #audio = spotifyObject.audio_analysis(track['item']['uri'])
         #print(json.dumps(track, sort_keys=True, indent=4))
-        tempo = audio['track']['tempo']
-        #print(track_name + " " + str(tempo))
+        #tempo = audio['track']['tempo']
+        features = spotifyObject.audio_features(track['item']['uri'])
+        print(json.dumps(features, sort_keys=True, indent=4))
+        tempo = features[0]['tempo']
+        energy = features[0]['energy']
+        danceability = features[0]['danceability']
+        
     t = threading.currentThread()
     while getattr(t, "do_run", True):        
         track = spotifyObject.current_user_playing_track()
@@ -191,20 +205,27 @@ def update_LED_dance():
             if is_playing:
                 track_uri = track['item']['uri']
                 if track_uri != current_dance:
+                    j=0
                     current_dance = track_uri
-                    audio = spotifyObject.audio_analysis(track_uri)
-                #     print(json.dumps(audio, sort_keys=True, indent=4))
-                    tempo = audio['track']['tempo']
+                    features = spotifyObject.audio_features(track['item']['uri'])
+                    tempo = features[0]['tempo']
+                    energy = features[0]['energy']
+                    danceability = features[0]['danceability']
+                    print(json.dumps(features, sort_keys=True, indent=4))
                     print(track['item']['name'] + " " + str(tempo))
-                pixels.fill((255, 0, 0))
-                pixels.show()
-#                 time.sleep(60.0/(tempo+correction))
-#                 pixels.fill((0, 255, 0))
-#                 pixels.show()
-#                 time.sleep(60.0/(tempo+correction))
-#                 pixels.fill((0, 0, 255))
-#                 pixels.show()
-#                 time.sleep(60.0/(tempo+correction))
+                if danceability >= 0.6 or energy >= 0.6:
+                    pixels.fill((255, 0, 0))
+                    pixels.show()
+                    time.sleep(60.0/(tempo+correction))
+                    pixels.fill((0, 255, 0))
+                    pixels.show()
+                    time.sleep(60.0/(tempo+correction))
+                    pixels.fill((0, 0, 255))
+                    pixels.show()
+                    time.sleep(60.0/(tempo+correction))
+                else:
+                    rainbow_cycle(1/(tempo+correction), j)
+                    j = (j+1)%255
             else:
                 pixels.fill((0, 0, 0))
                 pixels.show()
@@ -212,7 +233,40 @@ def update_LED_dance():
             pixels.fill((0, 0, 0))
             pixels.show()
 
-############ MAIN PROG ############
+########## GENIUS LYRICS ###########
+
+genius = lyricsgenius.Genius("F-6z9zjNCL_wF_mFpLCGd9y3aF1katSAs_oDEP-NKrCjvrBvjFt2GJE8nFqynMl6")
+
+def song_lyrics(song_name, artist_name):
+    artist = genius.search_artist(artist_name, max_songs=1)
+    song = genius.search_song(song_name, artist.name)
+    return song.lyrics
+
+def edit_lyrics_html(image_url, artist, track):
+    global lyrics
+    f = open(lyrics[1:], 'w')
+    f.write("<!DOCTYPE html><html><head><title>Spotify Jukebox</title><meta charset=\"UTF-8\">")
+    f.write("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">")
+    f.write("<style>*{box-sizing: border-box;}.column {float: left;width: 50%;padding: 10px;height: 300px;}")
+    f.write(".row:after { content: "";display: table; clear: both;}</style></head>")
+    f.write("<body style=text-align:center;font-family:courier;background-color:#1DB954>")#1DB954>")
+    lyrics_str = song_lyrics(track, artist)
+    f.write("<div class=\"row\">")
+    f.write("<div class=\"column\">")
+    f.write("<br><br><br>")
+    f.write("<h1>" + artist + " - " + track + "</h1>")
+    f.write("<img style=\"width:800px;height:800px;\" src=\"")
+    f.write(image_url)
+    f.write("\">")
+    f.write("<h6>\"SPOTIFY JUKEBOX\" BY RUETTEN<h6></body></html>")
+    f.write("</div>")
+    f.write("<div class=\"column\">")
+    f.write("<h6>" + lyrics_str.replace("\n", "<br/>") + "</h6>")
+    f.write("</div>")
+    f.write("</div>")
+    f.close()
+
+############ MAIN PROG #############
 serve_thr = None
 refrsh_thr = None
 led_thr = None
@@ -278,13 +332,8 @@ def main():
     while True:
         print()
         print("WELCOME TO THE SPOTIFY JUKEBOX " + displayName)
-        print("YOU HAVE " + str(followers) + " FOLLOWERS.")
-        print()
-        print("0 - Search for an artist")
-        print("1 - exit")
-        print()
-        choice = input("Your choice: ")
-        print("Your choice: " + choice)
+        
+        choice = input("")
 
         # Search for artist
         if choice == "0":
@@ -343,8 +392,8 @@ def main():
     #             spotifyObject.start_playback(deviceID, None, trackSelectionList)
                 spotifyObject.add_to_queue(trackURIs[int(songSelection)], device_id=deviceID)
                 spotifyObject.next_track()
-                if auto_refresh > 0:
-                    r = requests.get(url = "http://localhost:" + port + "/")
+                #if auto_refresh > 0:
+                    #r = requests.get(url = "http://localhost:" + port + "/")
     #                 edit_html(trackArt[int(songSelection)])
     #                 webbrowser.open(trackArt[int(songSelection)])
     #                 time.sleep(3)
